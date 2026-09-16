@@ -56,14 +56,16 @@ button,.btn{font:inherit;font-weight:600;font-size:13px;letter-spacing:.06em;tex
 .seg{display:flex;flex-wrap:wrap;gap:8px}
 .seg label{display:flex;align-items:center;gap:8px;margin:0;font-size:13px;font-weight:500;letter-spacing:0;border:1px solid var(--line);border-radius:999px;padding:8px 14px;background:var(--field);cursor:pointer}
 .seg label:has(input:checked){border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
-.seg input{width:auto;margin:0;padding:0;accent-color:var(--accent)}
-.tp{display:flex;gap:6px}
+.seg input{width:auto;height:auto;margin:0;padding:0;accent-color:var(--accent)}
+.tp{display:flex;align-items:center;gap:6px}
+.colon{font-weight:600;color:var(--muted)}
 .help{margin:6px 0 0;font-size:12px;color:var(--muted)}
 input,select{height:46px;line-height:1.2}
 textarea{height:auto}
 label{white-space:nowrap}
 .seg label{white-space:normal}
-.tp select{flex:1 1 0;min-width:0;padding-inline:8px}
+.tp select{flex:1 1 0;min-width:0;padding-inline:8px 2px;font-size:14px}
+.tp select[id$="AP"]{flex:0 0 64px}
 .combo{position:relative}
 #tzList{position:absolute;z-index:10;left:0;right:0;top:100%;margin:4px 0 0;padding:4px;list-style:none;background:var(--card);border:1px solid var(--line);border-radius:4px;max-height:280px;overflow:auto;box-shadow:0 10px 28px rgba(40,25,15,.14)}
 #tzList li{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:9px 10px;border-radius:3px;cursor:pointer}
@@ -114,6 +116,7 @@ label{white-space:nowrap}
           <label for="startH">Start time</label>
           <div class="tp">
             <select id="startH"></select>
+            <span class="colon" aria-hidden="true">:</span>
             <select id="startM" aria-label="Start minutes"></select>
             <select id="startAP" aria-label="Start AM or PM"><option>AM</option><option>PM</option></select>
           </div>
@@ -123,6 +126,7 @@ label{white-space:nowrap}
           <label for="endH">End time</label>
           <div class="tp">
             <select id="endH"></select>
+            <span class="colon" aria-hidden="true">:</span>
             <select id="endM" aria-label="End minutes"></select>
             <select id="endAP" aria-label="End AM or PM"><option>AM</option><option>PM</option></select>
           </div>
@@ -309,6 +313,7 @@ label{white-space:nowrap}
   function opt(sel, value, text){ var o=document.createElement("option"); o.value=value; o.textContent=text; sel.appendChild(o); }
   function setupPicker(id){
     var h=$(id+"H"), m=$(id+"M"), ap=$(id+"AP"), hidden=$(id);
+    opt(m, "", "Minute");
     for(var i=0;i<60;i+=5) opt(m, pad(i), pad(i));
     function fill(){
       var keep = hidden.value; h.innerHTML="";
@@ -323,6 +328,7 @@ label{white-space:nowrap}
     }
     function update(){
       if(h.value===""){ hidden.value=""; build(); return; }
+      if(m.value==="") m.value="00";
       var hh=+h.value;
       if(fmt==="12"){ hh = hh%12; if(ap.value==="PM") hh+=12; }
       hidden.value = pad(hh)+":"+m.value; build();
