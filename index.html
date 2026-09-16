@@ -52,6 +52,13 @@ button,.btn{font:inherit;font-weight:600;font-size:13px;letter-spacing:.06em;tex
 .steps{margin-top:28px}
 .steps h3{font-family:"Cormorant Garamond",Georgia,serif;font-weight:600;font-size:22px;margin:0 0 10px;text-align:center}
 .steps ol{margin:0;padding-left:20px;display:grid;gap:8px}
+.lbl{display:block;font-size:12px;font-weight:600;letter-spacing:.04em;margin-bottom:6px}
+.seg{display:flex;flex-wrap:wrap;gap:8px}
+.seg label{display:flex;align-items:center;gap:8px;margin:0;font-size:13px;font-weight:500;letter-spacing:0;border:1px solid var(--line);border-radius:999px;padding:8px 14px;background:var(--field);cursor:pointer}
+.seg label:has(input:checked){border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.seg input{width:auto;margin:0;padding:0;accent-color:var(--accent)}
+.tp{display:flex;gap:6px}
+.tp select{flex:1 1 0;min-width:0;padding-inline:8px}
 .combo{position:relative}
 #tzList{position:absolute;z-index:10;left:0;right:0;top:100%;margin:4px 0 0;padding:4px;list-style:none;background:var(--card);border:1px solid var(--line);border-radius:4px;max-height:280px;overflow:auto;box-shadow:0 10px 28px rgba(40,25,15,.14)}
 #tzList li{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:9px 10px;border-radius:3px;cursor:pointer}
@@ -89,14 +96,31 @@ button,.btn{font:inherit;font-weight:600;font-size:13px;letter-spacing:.06em;tex
           </div>
         </div>
       </div>
+      <div>
+        <span class="lbl" id="fmtLbl">Time format</span>
+        <div class="seg" role="radiogroup" aria-labelledby="fmtLbl">
+          <label><input type="radio" name="fmt" id="fmt12" value="12"> 12-hour <span class="hint">4:00 PM</span></label>
+          <label><input type="radio" name="fmt" id="fmt24" value="24"> 24-hour <span class="hint">16:00</span></label>
+        </div>
+      </div>
       <div class="row">
         <div>
-          <label for="start">Start time</label>
-          <input id="start" type="time" required>
+          <label for="startH">Start time</label>
+          <div class="tp">
+            <select id="startH"></select>
+            <select id="startM" aria-label="Start minutes"></select>
+            <select id="startAP" aria-label="Start AM or PM"><option>AM</option><option>PM</option></select>
+          </div>
+          <input type="hidden" id="start">
         </div>
         <div>
-          <label for="end">End time</label>
-          <input id="end" type="time" required>
+          <label for="endH">End time</label>
+          <div class="tp">
+            <select id="endH"></select>
+            <select id="endM" aria-label="End minutes"></select>
+            <select id="endAP" aria-label="End AM or PM"><option>AM</option><option>PM</option></select>
+          </div>
+          <input type="hidden" id="end">
         </div>
       </div>
       <div>
@@ -269,8 +293,42 @@ button,.btn{font:inherit;font-weight:600;font-size:13px;letter-spacing:.06em;tex
   function nice(d, t){
     var p = d.split("-").map(Number), h = t.split(":").map(Number);
     var x = new Date(Date.UTC(p[0],p[1]-1,p[2],h[0],h[1]));
-    return x.toLocaleString("en-GB",{timeZone:"UTC",weekday:"long",day:"numeric",month:"long",year:"numeric",hour:"numeric",minute:"2-digit"});
+    return x.toLocaleString("en-GB",{timeZone:"UTC",weekday:"long",day:"numeric",month:"long",year:"numeric",hour:fmt==="12"?"numeric":"2-digit",minute:"2-digit",hour12:fmt==="12"});
   }
+
+  // ---- Time pickers: 12-hour or 24-hour ----
+  var fmt = "24";
+  try { if (new Intl.DateTimeFormat(undefined,{hour:"numeric"}).resolvedOptions().hour12) fmt = "12"; } catch(e){}
+  $("fmt"+fmt).checked = true;
+  function opt(sel, value, text){ var o=document.createElement("option"); o.value=value; o.textContent=text; sel.appendChild(o); }
+  function setupPicker(id){
+    var h=$(id+"H"), m=$(id+"M"), ap=$(id+"AP"), hidden=$(id);
+    for(var i=0;i<60;i+=5) opt(m, pad(i), pad(i));
+    function fill(){
+      var keep = hidden.value; h.innerHTML="";
+      opt(h, "", "Hour");
+      if(fmt==="12"){ for(var i=1;i<=12;i++) opt(h, String(i), String(i)); ap.hidden=false; }
+      else { for(var j=0;j<24;j++) opt(h, pad(j), pad(j)); ap.hidden=true; }
+      if(keep){
+        var hh=+keep.split(":")[0];
+        if(fmt==="12"){ h.value=String(hh%12||12); ap.value= hh>=12 ? "PM":"AM"; }
+        else h.value=pad(hh);
+      }
+    }
+    function update(){
+      if(h.value===""){ hidden.value=""; build(); return; }
+      var hh=+h.value;
+      if(fmt==="12"){ hh = hh%12; if(ap.value==="PM") hh+=12; }
+      hidden.value = pad(hh)+":"+m.value; build();
+    }
+    [h,m,ap].forEach(function(x){ x.addEventListener("change", update); });
+    fill();
+    return fill;
+  }
+  var refills = [setupPicker("start"), setupPicker("end")];
+  ["fmt12","fmt24"].forEach(function(id){
+    $(id).addEventListener("change", function(){ fmt=$(id).value; refills.forEach(function(f){f();}); build(); });
+  });
 
   var current = "";
   function build(){
