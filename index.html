@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Save the Date Link Maker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Montserrat:wght@400;500;600&display=swap">
+<style>
+body{margin:0}
+:root{
+  --bg:#f3f0ec; --card:#fbfaf8; --ink:#3b302a; --muted:#7a6d64; --line:#ddd4cc;
+  --accent:#6b4f3f; --accent-ink:#fbfaf8; --field:#ffffff; --ok:#4f6b52; --focus:#b08d74;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#1f1b19; --card:#2a2522; --ink:#efe8e2; --muted:#b3a79e; --line:#433b36;
+    --accent:#d2b49f; --accent-ink:#2a2522; --field:#231f1d; --ok:#9fc2a2; --focus:#d2b49f;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#1f1b19; --card:#2a2522; --ink:#efe8e2; --muted:#b3a79e; --line:#433b36;
+  --accent:#d2b49f; --accent-ink:#2a2522; --field:#231f1d; --ok:#9fc2a2; --focus:#d2b49f;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:Montserrat,"Helvetica Neue",Arial,sans-serif;font-size:15px;line-height:1.55}
+.wrap{max-width:620px;margin:0 auto;padding-inline:16px;padding-block:40px 64px}
+header{text-align:center;margin-bottom:28px}
+.eyebrow{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted)}
+h1{font-family:"Cormorant Garamond",Georgia,serif;font-weight:500;font-size:clamp(34px,7vw,46px);line-height:1.1;margin:8px 0 10px;text-wrap:balance}
+.lede{color:var(--muted);max-width:46ch;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:24px}
+form{display:grid;gap:16px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:480px){.row{grid-template-columns:1fr}}
+label{display:block;font-size:12px;font-weight:600;letter-spacing:.04em;margin-bottom:6px}
+.hint{font-weight:400;color:var(--muted);letter-spacing:0}
+input,select,textarea{width:100%;font:inherit;color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:4px;padding:10px 12px}
+textarea{resize:vertical;min-height:70px}
+input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
+.result{margin-top:22px;border-top:1px solid var(--line);padding-top:20px}
+.result h2{font-family:"Cormorant Garamond",Georgia,serif;font-weight:600;font-size:24px;margin:0 0 4px}
+.summary{color:var(--muted);font-size:13px;margin:0 0 12px}
+.link{font-family:ui-monospace,Menlo,monospace;font-size:12px;word-break:break-all;background:var(--field);border:1px dashed var(--line);border-radius:4px;padding:12px}
+.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+button,.btn{font:inherit;font-weight:600;font-size:13px;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:11px 20px;cursor:pointer;text-decoration:none;display:inline-block}
+.primary{background:var(--accent);color:var(--accent-ink);border:1px solid var(--accent)}
+.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.status{font-size:13px;color:var(--ok);min-height:1.2em;margin-top:8px}
+.error{color:#b04a3a}
+.steps{margin-top:28px}
+.steps h3{font-family:"Cormorant Garamond",Georgia,serif;font-weight:600;font-size:22px;margin:0 0 10px;text-align:center}
+.steps ol{margin:0;padding-left:20px;display:grid;gap:8px}
+.note{font-size:12px;color:var(--muted);text-align:center;margin-top:22px}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Your wedding website</div>
+    <h1>Save the Date Link Maker</h1>
+    <p class="lede">Fill in your details. Copy your link. Paste it onto the “Click here to save the date” button in Canva.</p>
+  </header>
+
+  <div class="card">
+    <form id="f" autocomplete="off">
+      <div>
+        <label for="name">Event name</label>
+        <input id="name" placeholder="e.g. Hailey and Richard Wedding" required>
+      </div>
+      <div class="row">
+        <div>
+          <label for="date">Wedding date</label>
+          <input id="date" type="date" required>
+        </div>
+        <div>
+          <label for="tz">Time zone <span class="hint">(where the wedding is)</span></label>
+          <select id="tz"></select>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="start">Start time</label>
+          <input id="start" type="time" required>
+        </div>
+        <div>
+          <label for="end">End time</label>
+          <input id="end" type="time" required>
+        </div>
+      </div>
+      <div>
+        <label for="venue">Venue address</label>
+        <input id="venue" placeholder="e.g. Oheka Castle, 135 W Gate Dr, Huntington, NY 11743, USA">
+      </div>
+      <div>
+        <label for="notes">Message to guests <span class="hint">(optional)</span></label>
+        <textarea id="notes" placeholder="e.g. Formal invitation to follow."></textarea>
+      </div>
+    </form>
+
+    <div class="result">
+      <h2>Your link</h2>
+      <p class="summary" id="summary"></p>
+      <div class="link" id="link"></div>
+      <div class="actions">
+        <button class="primary" id="copy" type="button">Copy link</button>
+        <a class="btn ghost" id="test" href="#" target="_blank" rel="noopener">Test link</a>
+      </div>
+      <div class="status" id="status" role="status"></div>
+    </div>
+  </div>
+
+  <section class="steps">
+    <h3>How to add it in Canva</h3>
+    <ol>
+      <li>Click <strong>Copy link</strong> above.</li>
+      <li>In Canva, click the <strong>“Click here to save the date”</strong> text once.</li>
+      <li>Click the <strong>•••</strong> more icon, then <strong>Link</strong>.</li>
+      <li>Paste the link and click <strong>Done</strong>.</li>
+    </ol>
+  </section>
+  <p class="note">Guests tap the link and add your wedding to their Google Calendar. No RSVP is asked.</p>
+</div>
+
+<script>
+(function(){
+  var $ = function(id){return document.getElementById(id);};
+  var fallback = ["Europe/London","Europe/Dublin","Europe/Paris","Europe/Madrid","Europe/Rome","Europe/Athens","America/New_York","America/Chicago","America/Denver","America/Los_Angeles","America/Toronto","America/Vancouver","Australia/Sydney","Australia/Melbourne","Australia/Perth","Pacific/Auckland","Asia/Hong_Kong","Asia/Singapore","Asia/Tokyo","Asia/Dubai","Africa/Johannesburg"];
+  var zones; try { zones = Intl.supportedValuesOf("timeZone"); } catch(e){ zones = fallback; }
+  if (zones.indexOf("UTC") === -1) zones = zones.concat(["UTC"]);
+  var local; try { local = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch(e){ local = "Europe/London"; }
+  var sel = $("tz");
+  zones.forEach(function(z){
+    var o = document.createElement("option"); o.value = z; o.textContent = z.replace(/_/g," ");
+    sel.appendChild(o);
+  });
+  sel.value = zones.indexOf(local) > -1 ? local : "Europe/London";
+
+  function pad(n){return String(n).padStart(2,"0");}
+  function stamp(d, t){ return d.replace(/-/g,"") + "T" + t.replace(":","") + "00"; }
+  function addDay(d){
+    var p = d.split("-").map(Number); var x = new Date(Date.UTC(p[0],p[1]-1,p[2]+1));
+    return x.getUTCFullYear()+"-"+pad(x.getUTCMonth()+1)+"-"+pad(x.getUTCDate());
+  }
+  function nice(d, t){
+    var p = d.split("-").map(Number), h = t.split(":").map(Number);
+    var x = new Date(Date.UTC(p[0],p[1]-1,p[2],h[0],h[1]));
+    return x.toLocaleString("en-GB",{timeZone:"UTC",weekday:"long",day:"numeric",month:"long",year:"numeric",hour:"numeric",minute:"2-digit"});
+  }
+
+  var current = "";
+  function build(){
+    var name=$("name").value.trim(), date=$("date").value, s=$("start").value, e=$("end").value;
+    var status=$("status"); status.textContent=""; status.className="status";
+    if(!name || !date || !s || !e){
+      current=""; $("link").textContent="Your link appears here once you add the event name, date and times.";
+      $("summary").textContent=""; $("test").removeAttribute("href"); return;
+    }
+    var endDate = e <= s ? addDay(date) : date;
+    var q = "action=TEMPLATE"
+      + "&text=" + encodeURIComponent(name)
+      + "&dates=" + stamp(date,s) + "/" + stamp(endDate,e)
+      + "&ctz=" + encodeURIComponent(sel.value);
+    var v=$("venue").value.trim(), n=$("notes").value.trim();
+    if(v) q += "&location=" + encodeURIComponent(v);
+    if(n) q += "&details=" + encodeURIComponent(n);
+    current = "https://calendar.google.com/calendar/render?" + q;
+    $("link").textContent = current;
+    $("test").href = current;
+    $("summary").textContent = nice(date,s) + " to " + nice(endDate,e).split(" at ").pop() + (endDate!==date?" (next day)":"") + " · " + sel.value.replace(/_/g," ");
+  }
+
+  $("copy").addEventListener("click", function(){
+    var status=$("status");
+    if(!current){ status.textContent="Fill in the form first."; status.className="status error"; return; }
+    function done(){ status.textContent="Copied. Now paste it into Canva."; status.className="status"; }
+    function manual(){
+      var r=document.createRange(); r.selectNodeContents($("link"));
+      var sl=window.getSelection(); sl.removeAllRanges(); sl.addRange(r);
+      try{ if(document.execCommand("copy")){ done(); return; } }catch(e){}
+      status.textContent="Link selected — press Ctrl+C (or ⌘+C) to copy."; status.className="status";
+    }
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(current).then(done, manual);
+    } else manual();
+  });
+
+  ["name","date","tz","start","end","venue","notes"].forEach(function(id){
+    $(id).addEventListener("input", build); $(id).addEventListener("change", build);
+  });
+  build();
+})();
+</script>
+
+</body>
+</html>
