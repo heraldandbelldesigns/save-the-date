@@ -52,6 +52,12 @@ button,.btn{font:inherit;font-weight:600;font-size:13px;letter-spacing:.06em;tex
 .steps{margin-top:28px}
 .steps h3{font-family:"Cormorant Garamond",Georgia,serif;font-weight:600;font-size:22px;margin:0 0 10px;text-align:center}
 .steps ol{margin:0;padding-left:20px;display:grid;gap:8px}
+.combo{position:relative}
+#tzList{position:absolute;z-index:10;left:0;right:0;top:100%;margin:4px 0 0;padding:4px;list-style:none;background:var(--card);border:1px solid var(--line);border-radius:4px;max-height:280px;overflow:auto;box-shadow:0 10px 28px rgba(40,25,15,.14)}
+#tzList li{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:9px 10px;border-radius:3px;cursor:pointer}
+#tzList li[aria-selected="true"],#tzList li:hover{background:var(--bg)}
+#tzList .off{color:var(--muted);font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums}
+#tzList .empty{color:var(--muted);cursor:default}
 .note{font-size:12px;color:var(--muted);text-align:center;margin-top:22px}
 </style>
 </head>
@@ -76,8 +82,11 @@ button,.btn{font:inherit;font-weight:600;font-size:13px;letter-spacing:.06em;tex
           <input id="date" type="date" required>
         </div>
         <div>
-          <label for="tz">Time zone <span class="hint">(where the wedding is)</span></label>
-          <select id="tz"></select>
+          <label for="tzSearch">Time zone <span class="hint">(type the wedding city or country)</span></label>
+          <div class="combo">
+            <input id="tzSearch" type="text" role="combobox" aria-expanded="false" aria-controls="tzList" aria-autocomplete="list" placeholder="e.g. New York, London, Sydney">
+            <ul id="tzList" role="listbox" hidden></ul>
+          </div>
         </div>
       </div>
       <div class="row">
@@ -127,16 +136,129 @@ button,.btn{font:inherit;font-weight:600;font-size:13px;letter-spacing:.06em;tex
 <script>
 (function(){
   var $ = function(id){return document.getElementById(id);};
-  var fallback = ["Europe/London","Europe/Dublin","Europe/Paris","Europe/Madrid","Europe/Rome","Europe/Athens","America/New_York","America/Chicago","America/Denver","America/Los_Angeles","America/Toronto","America/Vancouver","Australia/Sydney","Australia/Melbourne","Australia/Perth","Pacific/Auckland","Asia/Hong_Kong","Asia/Singapore","Asia/Tokyo","Asia/Dubai","Africa/Johannesburg"];
-  var zones; try { zones = Intl.supportedValuesOf("timeZone"); } catch(e){ zones = fallback; }
-  if (zones.indexOf("UTC") === -1) zones = zones.concat(["UTC"]);
-  var local; try { local = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch(e){ local = "Europe/London"; }
-  var sel = $("tz");
-  zones.forEach(function(z){
-    var o = document.createElement("option"); o.value = z; o.textContent = z.replace(/_/g," ");
-    sel.appendChild(o);
+
+  // Popular wedding locations: [label, time zone, extra search words]
+  var POPULAR = [
+    ["New York (US Eastern)","America/New_York","usa us united states america east coast eastern est edt boston miami florida washington dc atlanta philadelphia new jersey"],
+    ["Chicago (US Central)","America/Chicago","usa us united states central cst cdt texas dallas houston austin nashville new orleans"],
+    ["Denver (US Mountain)","America/Denver","usa us united states mountain mst mdt colorado utah salt lake"],
+    ["Phoenix (Arizona)","America/Phoenix","usa us united states arizona scottsdale"],
+    ["Los Angeles (US Pacific)","America/Los_Angeles","usa us united states pacific pst pdt california san francisco san diego las vegas seattle portland napa"],
+    ["Honolulu (Hawaii)","Pacific/Honolulu","usa us hawaii maui hst"],
+    ["Toronto (Canada Eastern)","America/Toronto","canada montreal ottawa quebec eastern"],
+    ["Vancouver (Canada Pacific)","America/Vancouver","canada british columbia whistler pacific"],
+    ["Mexico City (Mexico)","America/Mexico_City","mexico"],
+    ["Cancún (Mexico)","America/Cancun","mexico cancun tulum riviera maya playa del carmen"],
+    ["London (UK)","Europe/London","uk united kingdom england scotland wales britain great gb gmt bst edinburgh manchester cotswolds"],
+    ["Dublin (Ireland)","Europe/Dublin","ireland irish"],
+    ["Paris (France)","Europe/Paris","france provence nice cet"],
+    ["Madrid / Barcelona (Spain)","Europe/Madrid","spain ibiza mallorca marbella seville"],
+    ["Rome / Florence (Italy)","Europe/Rome","italy tuscany amalfi lake como venice milan sicily"],
+    ["Lisbon (Portugal)","Europe/Lisbon","portugal algarve porto"],
+    ["Amsterdam (Netherlands)","Europe/Amsterdam","netherlands holland"],
+    ["Berlin (Germany)","Europe/Berlin","germany munich"],
+    ["Zurich (Switzerland)","Europe/Zurich","switzerland geneva"],
+    ["Athens (Greece)","Europe/Athens","greece santorini mykonos crete"],
+    ["Dubai (UAE)","Asia/Dubai","uae united arab emirates abu dhabi"],
+    ["Delhi / Mumbai (India)","Asia/Kolkata","india goa jaipur udaipur ist"],
+    ["Bangkok (Thailand)","Asia/Bangkok","thailand phuket koh samui"],
+    ["Bali (Indonesia)","Asia/Makassar","indonesia bali denpasar ubud"],
+    ["Singapore","Asia/Singapore","singapore"],
+    ["Hong Kong","Asia/Hong_Kong","hong kong hk"],
+    ["Tokyo (Japan)","Asia/Tokyo","japan kyoto osaka"],
+    ["Sydney (Australia)","Australia/Sydney","australia nsw aest"],
+    ["Melbourne (Australia)","Australia/Melbourne","australia victoria"],
+    ["Brisbane (Australia)","Australia/Brisbane","australia queensland gold coast"],
+    ["Perth (Australia)","Australia/Perth","australia western"],
+    ["Auckland (New Zealand)","Pacific/Auckland","new zealand nz queenstown wellington"],
+    ["Cape Town (South Africa)","Africa/Johannesburg","south africa johannesburg"],
+    ["São Paulo (Brazil)","America/Sao_Paulo","brazil rio de janeiro"]
+  ];
+
+  function norm(t){ return String(t).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[_/(),.-]+/g," ").replace(/\s+/g," ").trim(); }
+
+  var entries = POPULAR.map(function(p){ return {label:p[0], tz:p[1], hay:norm(p[0]+" "+p[1]+" "+p[2]), popular:true}; });
+  var known = {}; entries.forEach(function(e){ known[e.tz]=true; });
+  var all = []; try { all = Intl.supportedValuesOf("timeZone"); } catch(e){}
+  all.forEach(function(z){
+    if(known[z] || z.indexOf("/")<0) return;
+    var parts=z.split("/"), city=parts[parts.length-1].replace(/_/g," "), region=parts[0].replace(/_/g," ");
+    entries.push({label: city+" ("+region+")", tz:z, hay:norm(city+" "+z), popular:false});
   });
-  sel.value = zones.indexOf(local) > -1 ? local : "Europe/London";
+  entries.push({label:"UTC / GMT+0", tz:"UTC", hay:"utc gmt universal", popular:false});
+
+  function offset(tz){
+    try{
+      var d = $("date").value ? new Date($("date").value+"T12:00:00Z") : new Date();
+      var p = new Intl.DateTimeFormat("en-GB",{timeZone:tz,timeZoneName:"shortOffset"}).formatToParts(d);
+      for(var i=0;i<p.length;i++) if(p[i].type==="timeZoneName") return p[i].value;
+    }catch(e){}
+    return "";
+  }
+
+  function search(q){
+    var tokens = norm(q).split(" ").filter(Boolean);
+    if(!tokens.length) return entries.filter(function(e){return e.popular;});
+    var hits = entries.filter(function(e){ return tokens.every(function(t){ return e.hay.indexOf(t)>-1; }); });
+    hits.sort(function(a,b){
+      var as = norm(a.label).indexOf(tokens[0])===0, bs = norm(b.label).indexOf(tokens[0])===0;
+      if(a.popular!==b.popular) return a.popular?-1:1;
+      if(as!==bs) return as?-1:1;
+      return 0;
+    });
+    return hits.slice(0,10);
+  }
+
+  var input=$("tzSearch"), list=$("tzList");
+  var chosen=null, matches=[], active=0;
+
+  function choose(e){
+    chosen=e; input.value=e.label; close(); build();
+  }
+  function render(){
+    list.innerHTML="";
+    if(!matches.length){
+      var li=document.createElement("li"); li.className="empty"; li.textContent="No match — try the nearest big city or the country";
+      list.appendChild(li);
+    }
+    matches.forEach(function(e,i){
+      var li=document.createElement("li"); li.setAttribute("role","option"); li.id="tzopt"+i;
+      li.setAttribute("aria-selected", i===active ? "true":"false");
+      var l=document.createElement("span"); l.textContent=e.label;
+      var o=document.createElement("span"); o.className="off"; o.textContent=offset(e.tz);
+      li.appendChild(l); li.appendChild(o);
+      li.addEventListener("mousedown",function(ev){ ev.preventDefault(); choose(e); });
+      list.appendChild(li);
+    });
+    list.hidden=false; input.setAttribute("aria-expanded","true");
+    if(matches.length) input.setAttribute("aria-activedescendant","tzopt"+active);
+  }
+  function open(){ matches=search(input.value===(chosen&&chosen.label)?"":input.value); active=0; render(); }
+  function close(){ list.hidden=true; input.setAttribute("aria-expanded","false"); input.removeAttribute("aria-activedescendant"); }
+
+  input.addEventListener("focus", function(){ input.select(); open(); });
+  input.addEventListener("input", function(){ matches=search(input.value); active=0; render(); });
+  input.addEventListener("keydown", function(ev){
+    if(ev.key==="ArrowDown"){ ev.preventDefault(); if(list.hidden) open(); else if(matches.length){ active=(active+1)%matches.length; render(); } }
+    else if(ev.key==="ArrowUp"){ ev.preventDefault(); if(matches.length){ active=(active-1+matches.length)%matches.length; render(); } }
+    else if(ev.key==="Enter"){ ev.preventDefault(); if(matches[active]) choose(matches[active]); }
+    else if(ev.key==="Escape"){ close(); if(chosen) input.value=chosen.label; }
+  });
+  input.addEventListener("blur", function(){
+    // Auto-fill: typed text becomes the best match
+    if(!chosen || input.value!==chosen.label){
+      var best = input.value.trim() ? search(input.value)[0] : null;
+      if(best) chosen=best;
+      if(chosen) input.value=chosen.label;
+      build();
+    }
+    close();
+  });
+
+  // Default: customer's own time zone
+  var local; try { local = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch(e){ local="Europe/London"; }
+  chosen = entries.filter(function(e){return e.tz===local;})[0] || entries.filter(function(e){return e.tz==="Europe/London";})[0];
+  input.value = chosen.label;
 
   function pad(n){return String(n).padStart(2,"0");}
   function stamp(d, t){ return d.replace(/-/g,"") + "T" + t.replace(":","") + "00"; }
@@ -154,7 +276,7 @@ button,.btn{font:inherit;font-weight:600;font-size:13px;letter-spacing:.06em;tex
   function build(){
     var name=$("name").value.trim(), date=$("date").value, s=$("start").value, e=$("end").value;
     var status=$("status"); status.textContent=""; status.className="status";
-    if(!name || !date || !s || !e){
+    if(!name || !date || !s || !e || !chosen){
       current=""; $("link").textContent="Your link appears here once you add the event name, date and times.";
       $("summary").textContent=""; $("test").removeAttribute("href"); return;
     }
@@ -162,14 +284,14 @@ button,.btn{font:inherit;font-weight:600;font-size:13px;letter-spacing:.06em;tex
     var q = "action=TEMPLATE"
       + "&text=" + encodeURIComponent(name)
       + "&dates=" + stamp(date,s) + "/" + stamp(endDate,e)
-      + "&ctz=" + encodeURIComponent(sel.value);
+      + "&ctz=" + encodeURIComponent(chosen.tz);
     var v=$("venue").value.trim(), n=$("notes").value.trim();
     if(v) q += "&location=" + encodeURIComponent(v);
     if(n) q += "&details=" + encodeURIComponent(n);
     current = "https://calendar.google.com/calendar/render?" + q;
     $("link").textContent = current;
     $("test").href = current;
-    $("summary").textContent = nice(date,s) + " to " + nice(endDate,e).split(" at ").pop() + (endDate!==date?" (next day)":"") + " · " + sel.value.replace(/_/g," ");
+    $("summary").textContent = nice(date,s) + " to " + nice(endDate,e).split(" at ").pop() + (endDate!==date?" (next day)":"") + " · " + chosen.label + " " + offset(chosen.tz);
   }
 
   $("copy").addEventListener("click", function(){
@@ -187,7 +309,7 @@ button,.btn{font:inherit;font-weight:600;font-size:13px;letter-spacing:.06em;tex
     } else manual();
   });
 
-  ["name","date","tz","start","end","venue","notes"].forEach(function(id){
+  ["name","date","start","end","venue","notes"].forEach(function(id){
     $(id).addEventListener("input", build); $(id).addEventListener("change", build);
   });
   build();
